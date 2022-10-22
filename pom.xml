@@ -10,19 +10,10 @@
     <version>1.0-SNAPSHOT</version>
     <dependencies>
         <dependency>
-            <groupId>com.googlecode.json-simple</groupId>
-            <artifactId>json-simple</artifactId>
-            <version>1.1.1</version>
-        </dependency>
-        <dependency>
             <groupId>com.intellij</groupId>
             <artifactId>forms_rt</artifactId>
             <version>7.0.3</version>
-        </dependency><dependency>
-        <groupId>com.intellij</groupId>
-        <artifactId>forms_rt</artifactId>
-        <version>7.0.3</version>
-    </dependency>
+        </dependency>
     </dependencies>
 
 
@@ -50,7 +41,7 @@
                         <configuration>
                             <archive>
                                 <manifest>
-                                    <mainClass>client.MainFrame</mainClass>
+                                    <mainClass>client.Paint</mainClass>
                                 </manifest>
                             </archive>
                             <descriptorRefs>

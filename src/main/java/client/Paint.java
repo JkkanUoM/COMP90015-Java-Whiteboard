@@ -51,38 +51,21 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		JButton btn_color = new JButton("Color");
 		JButton btn_triangle = new JButton("Triangle");
 
-		chooser.getSelectionModel().addChangeListener(e -> {
-			System.out.println(e);
+		chooser.getSelectionModel().addChangeListener(System.out::println);
 
-		});
-		btn_ellipse.addActionListener(e -> {
-			selected = ELLIPSE;
-		});
-
-		btn_rect.addActionListener(e -> {
-			selected = RECTANGLE;
-		});
-
-		btn_line.addActionListener(e -> {
-			selected = LINE;
-		});
-
+		btn_ellipse.addActionListener(e -> selected = ELLIPSE);
+		btn_rect.addActionListener(e -> selected = RECTANGLE);
+		btn_line.addActionListener(e -> selected = LINE);
 		btn_text.addActionListener(e -> {
 			selected = TEXT;
 			status.setText("Click on the canvas and start typing");
 		});
-
-		btn_free.addActionListener(e -> {
-			selected = FREE;
-		});
-		
+		btn_free.addActionListener(e -> selected = FREE);
 		btn_triangle.addActionListener(e -> {
 			selected = TRIANGLE;
 			status.setText("Click on the canvas to add the first vertex of the triangle");
 		});
-		
 		btn_color.addActionListener(e -> {
-
 			Color c = JColorChooser.showDialog(null, "Select color", currentColor);
 			if (c != null) {
 				currentColor = c;
@@ -127,27 +110,23 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
         try {
 			Socket socket = new Socket("localhost", 4321);
 			out = new ObjectOutputStream(socket.getOutputStream());
-			Thread thread = new Thread() {
-				public void run() {
-					try {
-						ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-						while(true) {
-							Drawable d = (Drawable) in.readObject();
-							System.out.println("Client: recieved new drawable. it has a shape " + d.getShape());
-							drawables.add(d);
-							SwingUtilities.invokeLater(() -> {
-								repaint();
-							});
-						}
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (ClassNotFoundException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+			Thread thread = new Thread(() -> {
+				try {
+					ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+					while(true) {
+						Drawable d = (Drawable) in.readObject();
+						System.out.println("Client: recieved new drawable. it has a shape " + d.getShape());
+						drawables.add(d);
+						SwingUtilities.invokeLater(this::repaint);
 					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (ClassNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-			};
+			});
 			
 			thread.start();
 			

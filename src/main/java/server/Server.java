@@ -6,6 +6,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 
 import javax.net.ServerSocketFactory;
@@ -18,8 +19,8 @@ public class Server {
 
     // Identifies the user number connected
     private static int counter = 0;
-    private static ArrayList<Drawable> drawables = new ArrayList<>();
-    private static ArrayList<ObjectOutputStream> clients = new ArrayList<>();
+    private static final ArrayList<Drawable> drawables = new ArrayList<>();
+    private static final ArrayList<ObjectOutputStream> clients = new ArrayList<>();
     
     public static void main(String[] args)
     {
@@ -38,6 +39,7 @@ public class Server {
                 // Start a new thread for a connection
                 Thread t = new Thread(() -> serveClient(client));
                 t.start();
+                broadcastAll(out);
             }
 
         } catch (IOException e) {
@@ -68,15 +70,26 @@ public class Server {
     }
     
     private static void broadcast(Drawable d) {
-		// TODO Auto-generated method stub
 		for(ObjectOutputStream out : clients) {
 			System.out.println("Broadcast");
 			try {
 				out.writeObject(d);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
+			} catch (SocketException e) {
+                clients.remove(out);
+            } catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
+
+    private static void broadcastAll (ObjectOutputStream out) {
+        System.out.println("Syncing history drawings with new client");
+        for (Drawable d : drawables) {
+            try {
+                out.writeObject(d);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }
