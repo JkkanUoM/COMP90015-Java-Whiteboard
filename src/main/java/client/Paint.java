@@ -14,10 +14,6 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 
-// change ellipse to circle
-// set height == width
-// need to fork
-
 public class Paint extends JFrame implements MouseMotionListener, MouseListener, KeyListener {
 
 	static final int ELLIPSE = 1;
@@ -29,7 +25,8 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	
 	int selected = RECTANGLE;
 	JLabel status = new JLabel();
-	
+
+	ArrayList<String> users = new ArrayList<>();
 	ArrayList<Drawable> drawables = new ArrayList<>();
 	Point start;
 	Drawable current;
@@ -39,6 +36,17 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	
 	public Paint() {
 		super("White Board");
+
+		JTextArea txt_users = new JTextArea();
+		JTextArea txt_chat = new JTextArea();
+		JScrollPane scroll1 = new JScrollPane(txt_users, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+		JScrollPane scroll2 = new JScrollPane(txt_chat);
+
+		JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scroll1, scroll2);
+		split.setMinimumSize(new Dimension(800, 100));
+
+		txt_users.setText("test");
+		txt_chat.setText("dkjafkl\nadjfkldja\nkajldl\n");
 
 		JPanel north = new JPanel();
 		JColorChooser chooser = new JColorChooser();
@@ -50,6 +58,10 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		JButton btn_text = new JButton("Text");
 		JButton btn_color = new JButton("Color");
 		JButton btn_triangle = new JButton("Triangle");
+
+		// add small text field
+		// add a chat button
+		// chat button  send a chat message
 
 		chooser.getSelectionModel().addChangeListener(System.out::println);
 
@@ -79,6 +91,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		getContentPane().add(pane, BorderLayout.CENTER);
 		getContentPane().add(north, BorderLayout.NORTH);
 		getContentPane().add(status, BorderLayout.SOUTH);
+		getContentPane().add(split, BorderLayout.EAST);
 		north.add(btn_ellipse);
 		north.add(btn_rect);
 		north.add(btn_line);
@@ -97,27 +110,51 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		pane.requestFocusInWindow();
 	}
 	
-	private void send(Drawable d) {
+	private void send(Message message) {
 		try {
-			System.out.println("Sendig a new drawable over the wire");
-			out.writeObject(d);
+
+			out.writeObject(message);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-	private void connect() {
+	private void connect(String username) {
         try {
 			Socket socket = new Socket("localhost", 4321);
 			out = new ObjectOutputStream(socket.getOutputStream());
 			Thread thread = new Thread(() -> {
 				try {
 					ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+					out.writeObject(username);
+
 					while(true) {
-						Drawable d = (Drawable) in.readObject();
-						System.out.println("Client: recieved new drawable. it has a shape " + d.getShape());
-						drawables.add(d);
-						SwingUtilities.invokeLater(this::repaint);
+						Message m = (Message) in.readObject();
+						Drawable d = m.getDrawable();
+						Info info = m.getInfo();
+						if(d != null) {
+							System.out.println("Client: recieved new drawable. it has a shape " + d.getShape());
+							drawables.add(d);
+							SwingUtilities.invokeLater(this::repaint);
+						}
+						if(info != null) {
+							if(info.getAction() == Info.LEFT) {
+								users.remove(info.getUsername());
+								status.setText(info.getUsername() + " has left the chat");
+							}
+							if(info.getAction() == Info.IN) {
+								users.add(info.getUsername());
+							}
+							if(info.getAction() == Info.JOINED) {
+								users.add(info.getUsername());
+								status.setText(info.getUsername() + " has joined the chat");
+							}
+
+							// update the txt_user with the content of the users Arraylist
+						}
+						// if type == chat add it to the text ara
+
+
 					}
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
@@ -142,8 +179,8 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		p.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		p.setSize(1000, 1000);
 		
-		//String s = JOptionPane.showInputDialog("Please enter your username");
-		p.connect();
+		String s = JOptionPane.showInputDialog("Please enter your username");
+		p.connect(s);
 		p.setVisible(true);
 	}
 
@@ -270,7 +307,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 				System.out.println(poly.npoints);
 				poly.addPoint(e.getPoint().x, e.getPoint().y);
 				if(poly.npoints == 3) {
-					send(current);
+					send(new Message(current));
 					status.setText("");
 					current = null;
 				}
@@ -324,7 +361,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	public void mouseReleased(MouseEvent e) {
 		if (current != null) {
 			if(selected != TRIANGLE) {
-				send(current);
+				send(new Message(current));
 				current = null;
 			}
 		}
@@ -348,7 +385,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 			if (s != null) {
 				current.setText(s + c);
 				if(c == '\n') {
-					send(current);
+					send(new Message(current));
 					current = null;
 				}
 				repaint();

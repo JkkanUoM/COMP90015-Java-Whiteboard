@@ -8,7 +8,6 @@ public class Drawable implements Serializable {
     String text;
     Color color;
     Point point;
-    //test
 
     public Drawable(Shape shape) {
         this.shape = shape;
