@@ -43,7 +43,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		JScrollPane scroll2 = new JScrollPane(txt_chat);
 
 		JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scroll1, scroll2);
-		split.setMinimumSize(new Dimension(800, 100));
+		split.setPreferredSize(new Dimension(200, getContentPane().getHeight()));
 
 		txt_users.setText("test");
 		txt_chat.setText("dkjafkl\nadjfkldja\nkajldl\n");
