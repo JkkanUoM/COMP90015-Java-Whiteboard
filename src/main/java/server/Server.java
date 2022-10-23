@@ -22,7 +22,8 @@ public class Server {
     private static int port = 4321;
 
     private static final ArrayList<Drawable> drawables = new ArrayList<>();
-    private static final HashMap<Info, ObjectOutputStream> clients = new HashMap<>();
+    private static final HashMap<String, ObjectOutputStream> clients = new HashMap<>();
+    private static final HashMap<String, Info> infos = new HashMap<>();
     private static final ArrayList<Thread> threads = new ArrayList<>();
     private static Socket manager;
     private static ObjectOutputStream managerOut;
@@ -76,8 +77,20 @@ public class Server {
             System.out.println(username + " connected");
 
             Info info = client == manager ? new Info(username, Info.IN) : new Info(username, Info.JOINED);
-            managerOut.writeObject(info);
-            clients.put(info, out);
+            info.isManager = client == manager;
+
+            if (clients.containsKey(username)) {
+                info.setAction(Info.LEFT);
+                out.writeObject(new Message(info));
+                in.close();
+                out.close();
+                client.close();
+                return;
+            }
+
+            managerOut.writeObject(new Message(info));
+            clients.put(username, out);
+            infos.put(username, info);
 
         	while (true) {
                 Message message = (Message) in.readObject();
@@ -87,24 +100,36 @@ public class Server {
 
                 // Verify acceptance from manager
                 if (info.getAction() == Info.JOINED) {
-                    if (inf != null && inf.getUsername().equals(username) && inf.getAction() == Info.IN) {
-                        info.setAction(Info.IN);
-                        syncHistory(out);
-                    }
                     continue;
                 }
 
-                if (inf != null && inf.getAction() == Info.LEFT) {
-                    System.out.println("Client left");
-                    in.close();
-                    out.close();
-                    client.close();
-                    clients.remove(info);
-                    broadcast(message);
+                if (inf != null) {
+                    String un = inf.getUsername();
+                    int act = inf.getAction();
 
-                    if (client == manager) {
-                        close();
-                        break;
+                    if (act == Info.IN) {
+                        infos.get(un).setAction(Info.IN);
+                        broadcast(message);
+                        syncHistory(clients.get(un));
+                    }
+                    if (act == Info.LEFT) {
+                        broadcast(message);
+
+                        if (inf.getUsername().equals(info.getUsername())) {
+                            System.out.println("Client left");
+                            in.close();
+                            out.close();
+                            client.close();
+
+                            if (client == manager) {
+                                System.out.println("Left client is manager");
+                                close();
+                                break;
+                            }
+                        }
+
+                        clients.remove(un);
+                        infos.remove(un);
                     }
                 }
 
@@ -119,30 +144,44 @@ public class Server {
                 // broadcast chat
 
         	}
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (ClassNotFoundException e) {
             e.printStackTrace();
+        } catch (IOException e) {
+            if (client == manager) {
+                close();
+            }
         }
     }
     
     private static void broadcast(Message d) {
-		for(Info info : clients.keySet()) {
+		for(String un : clients.keySet()) {
+            Info info = infos.get(un);
             if (info.getAction() != Info.IN) {
                 continue;
             }
 			System.out.println("Broadcast");
-            ObjectOutputStream out = clients.get(info);
+            ObjectOutputStream out = clients.get(un);
 			try {
 				out.writeObject(d);
-			} catch (SocketException e) {
-                clients.remove(info, out);
-            } catch (IOException e) {
-				e.printStackTrace();
+			} catch (IOException e) {
+                clients.remove(un);
+                infos.remove(un);
 			}
 		}
 	}
 
     private static void syncHistory (ObjectOutputStream out) {
         System.out.println("Syncing history drawings with new client");
+        for (String un : clients.keySet()) {
+            Info inf = infos.get(un);
+            try {
+                if (inf.getAction() == Info.IN) {
+                    out.writeObject(new Message(inf));
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         for (Drawable d : drawables) {
             try {
                 out.writeObject(new Message(d));
@@ -160,7 +199,7 @@ public class Server {
             }
             server.close();
         } catch (InterruptedException | IOException e) {
-            e.printStackTrace();
+            System.exit(0);
         }
     }
 }

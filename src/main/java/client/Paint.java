@@ -25,28 +25,25 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	
 	int selected = RECTANGLE;
 	JLabel status = new JLabel();
-
-	ArrayList<String> users = new ArrayList<>();
+	DefaultListModel<String> userList = new DefaultListModel<>();
 	ArrayList<Drawable> drawables = new ArrayList<>();
 	Point start;
 	Drawable current;
 	Color currentColor = Color.black;
 	CanvasPane pane = new CanvasPane();
 	ObjectOutputStream out;
+	Info selfInfo;
 	
 	public Paint() {
 		super("White Board");
 
-		JTextArea txt_users = new JTextArea();
 		JTextArea txt_chat = new JTextArea();
-		JScrollPane scroll1 = new JScrollPane(txt_users, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+		JList<String> userJList = new JList<>(userList);
+		JScrollPane scroll1 = new JScrollPane(userJList, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
 		JScrollPane scroll2 = new JScrollPane(txt_chat);
 
 		JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scroll1, scroll2);
 		split.setPreferredSize(new Dimension(200, getContentPane().getHeight()));
-
-		txt_users.setText("test");
-		txt_chat.setText("dkjafkl\nadjfkldja\nkajldl\n");
 
 		JPanel north = new JPanel();
 		JColorChooser chooser = new JColorChooser();
@@ -86,6 +83,29 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 				}
 			}
 		});
+		userJList.addListSelectionListener(e -> {
+			if (selfInfo.isManager) {
+				String un = userJList.getSelectedValue();
+				if (!un.equals(selfInfo.getUsername())) {
+					Info info = new Info(userJList.getSelectedValue(), Info.IN);
+					Object[] options = {"Yes", "Cancel"};
+					int response = JOptionPane.showOptionDialog(this.getContentPane(),
+							"Remove " + info.getUsername() + " from your board?",
+							"Confirm Remove From Board",
+							JOptionPane.YES_NO_OPTION,
+							JOptionPane.QUESTION_MESSAGE,
+							null,
+							options,
+							options[1]);
+					if (response == 0) {
+						info.setAction(Info.LEFT);
+						send(new Message(info));
+						userList.removeElement(un);
+					}
+				}
+				userJList.clearSelection();
+			}
+		});
 
 		getContentPane().setLayout(new BorderLayout());
 		getContentPane().add(pane, BorderLayout.CENTER);
@@ -105,6 +125,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		pane.addKeyListener(this);
 		pane.setFocusable(true);
 		pane.requestFocusInWindow();
+		pane.setEnabled(false);
 	}
 	
 	private void send(Message message) {
@@ -123,8 +144,10 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 				try {
 					ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
 					out.writeObject(username);
+					selfInfo = new Info(username, Info.JOINED);
+					status.setText("Waiting for manager confirm...");
 
-					while(true) {
+					while (true) {
 						Message m = (Message) in.readObject();
 						Drawable d = m.getDrawable();
 						Info info = m.getInfo();
@@ -134,16 +157,58 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 							SwingUtilities.invokeLater(this::repaint);
 						}
 						if(info != null) {
-							if(info.getAction() == Info.LEFT) {
-								users.remove(info.getUsername());
-								status.setText(info.getUsername() + " has left the board");
+							int act = info.getAction();
+							String un = info.getUsername();
+
+							if (un.equals(username)) {
+								if (act == Info.LEFT) {
+									out.close();
+									in.close();
+									socket.close();
+									if (selfInfo.getAction() == Info.IN) {
+										status.setText("Your connection is closed by manager.");
+									} else {
+										status.setText("Your name is already taken, choose another one.");
+									}
+									break;
+								}
+								if (act == Info.IN) {
+									if (selfInfo.getAction() != act) {
+										userList.addElement(username);
+										selfInfo = info;
+										pane.setEnabled(true);
+										status.setText("You've joint the board!");
+									}
+									continue;
+								}
 							}
-							if(info.getAction() == Info.IN) {
-								users.add(info.getUsername());
+
+							if (act == Info.LEFT) {
+								userList.removeElement(un);
+								status.setText(un + " has left the board");
 							}
-							if(info.getAction() == Info.JOINED) {
-								users.add(info.getUsername());
+							if (act == Info.IN) {
+								userList.addElement(un);
 								status.setText(info.getUsername() + " has joined the board");
+							}
+							if (act == Info.JOINED) {
+								if (selfInfo.isManager) {
+									int response = -1;
+									if (userList.indexOf(un) == -1) {
+										Object[] options = {"Confirm", "Decline"};
+										response = JOptionPane.showOptionDialog(this.getContentPane(),
+												un + " wants to join your board",
+												"New Join Request",
+												JOptionPane.YES_NO_OPTION,
+												JOptionPane.QUESTION_MESSAGE,
+												null,
+												options,
+												options[0]);
+									}
+
+									info.setAction(response == 0 ? Info.IN : Info.LEFT);
+									send(new Message(info));
+								}
 							}
 
 							// update the txt_user with the content of the users Arraylist
@@ -160,7 +225,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 			thread.start();
 			
 		} catch (IOException e) {
-			e.printStackTrace();
+			status.setText("Disconnected");
 		}
         
 	}
@@ -175,8 +240,22 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 				return;
 			}
 		}
+
 		Paint p = new Paint();
 		p.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		p.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				try {
+					if (p.selfInfo != null) {
+						p.selfInfo.setAction(Info.LEFT);
+						p.out.writeObject(new Message(p.selfInfo));
+					}
+				} catch (IOException ex) {
+					ex.printStackTrace();
+				}
+			}
+		});
 		p.setSize(1000, 1000);
 		
 		String s = JOptionPane.showInputDialog("Please enter your username");
