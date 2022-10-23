@@ -3,7 +3,7 @@ package client;
 import java.io.Serializable;
 
 public class Message implements Serializable {
-    private  Info info;
+    private Info info;
     private Drawable drawable;
     private Chat chat;
 

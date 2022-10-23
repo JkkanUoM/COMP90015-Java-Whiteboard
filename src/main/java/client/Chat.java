@@ -1,6 +1,8 @@
 package client;
 
-public class Chat {
+import java.io.Serializable;
+
+public class Chat implements Serializable {
     private String recipient;
     private String message;
 
