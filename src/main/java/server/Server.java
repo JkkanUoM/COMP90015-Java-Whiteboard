@@ -28,9 +28,8 @@ public class Server {
     private static ObjectOutputStream managerOut;
     private static ObjectInputStream managerIn;
     private static ServerSocket server;
-    
-    public static void main(String[] args)
-    {
+
+    public static void main(String[] args) {
         if (args.length > 1) {
             try {
                 port = Integer.parseInt(args[1]);
@@ -101,7 +100,7 @@ public class Server {
             clients.put(username, out);
             infos.put(username, info);
 
-        	while (true) {
+            while (true) {
                 Message message = (Message) in.readObject();
                 Info inf = message.getInfo();
                 Drawable d = message.getDrawable();
@@ -147,35 +146,34 @@ public class Server {
                         drawables.add(d);
                         broadcast(message);
                     }
-                }
-                else if(c != null) {
+                } else if (c != null) {
                     c.setMessage(username + "> " + c.getMessage());
                     broadcast(message);
                 }
-        	}
+            }
         } catch (ClassNotFoundException | IOException e) {
             e.printStackTrace();
         }
     }
-    
+
     private static void broadcast(Message d) {
-		for(String un : clients.keySet()) {
+        for (String un : clients.keySet()) {
             Info info = infos.get(un);
             if (info.getAction() != Info.IN) {
                 continue;
             }
 
             ObjectOutputStream out = clients.get(un);
-			try {
-				out.writeObject(d);
-			} catch (IOException e) {
+            try {
+                out.writeObject(d);
+            } catch (IOException e) {
                 clients.remove(un);
                 infos.remove(un);
-			}
-		}
-	}
+            }
+        }
+    }
 
-    private static void syncHistory (ObjectOutputStream out) {
+    private static void syncHistory(ObjectOutputStream out) {
         System.out.println("Syncing history drawings with new client");
         for (String un : clients.keySet()) {
             Info inf = infos.get(un);

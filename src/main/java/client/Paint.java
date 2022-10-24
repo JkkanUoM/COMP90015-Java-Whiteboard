@@ -7,10 +7,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
@@ -25,6 +22,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	static final int TRIANGLE = 6;
 	private final JTextArea txt_chat;
 	private final JMenuBar bar;
+	static String filePath = null;
 
 	int selected = RECTANGLE;
 	JLabel status = new JLabel();
@@ -46,17 +44,22 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		bar = new JMenuBar();
 		JMenu menu = new JMenu("File");
 		bar.add(menu);
+		JMenuItem jm_new = new JMenuItem(("New"));
 		JMenuItem jm_open = new JMenuItem("Open");
 		JMenuItem jm_save = new JMenuItem("Save");
 		JMenuItem jm_saveAs = new JMenuItem("Save as");
 		JMenuItem jm_close = new JMenuItem("close");
 
 
-
+		menu.add(jm_new);
 		menu.add(jm_open);
 		menu.add(jm_save);
 		menu.add(jm_saveAs);
 		menu.add(jm_close);
+
+		jm_new.addActionListener((e -> {
+			System.out.println("New clicked");
+		}));
 
 		jm_open.addActionListener(e -> {
 			System.out.println("Open clicked");
@@ -64,10 +67,37 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 
 		jm_save.addActionListener(e -> {
 			System.out.println("Save clicked");
+
+			try {
+				File f = new File("Objects.binary");
+				f.delete();
+				f.createNewFile();
+				ObjectOutputStream objOut = new ObjectOutputStream(new FileOutputStream(f));
+				for (Drawable d : drawables) {
+					objOut.writeObject(d);
+				}
+			} catch (IOException IOe) {
+				IOe.printStackTrace();
+			}
+
 		});
 
 		jm_saveAs.addActionListener(e -> {
 			System.out.println("Save As clicked");
+				JFileChooser fs = new JFileChooser();
+				int result = fs.showOpenDialog(null);
+				if(result == JFileChooser.APPROVE_OPTION) {
+			try {
+				File f = fs.getSelectedFile();
+				f.delete();
+				f.createNewFile();
+				ObjectOutputStream objOut = new ObjectOutputStream(new FileOutputStream(f));
+				for (Drawable d : drawables) {
+					objOut.writeObject(d);
+				}
+			} catch (IOException IOe) {
+				IOe.printStackTrace();
+			}}
 		});
 
 		jm_close.addActionListener(e -> {
@@ -177,7 +207,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		pane.requestFocusInWindow();
 		pane.setEnabled(false);
 	}
-	
+
 	private void send(Message message) {
 		try {
 			out.writeObject(message);
