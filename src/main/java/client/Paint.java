@@ -46,18 +46,32 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		bar = new JMenuBar();
 		JMenu menu = new JMenu("File");
 		bar.add(menu);
-		JMenuItem jm_open = new JMenuItem("OPen");
+		JMenuItem jm_open = new JMenuItem("Open");
 		JMenuItem jm_save = new JMenuItem("Save");
+		JMenuItem jm_saveAs = new JMenuItem("Save as");
+		JMenuItem jm_close = new JMenuItem("close");
+
+
 
 		menu.add(jm_open);
 		menu.add(jm_save);
+		menu.add(jm_saveAs);
+		menu.add(jm_close);
 
 		jm_open.addActionListener(e -> {
-			System.out.println("OPen clicked");
+			System.out.println("Open clicked");
 		});
 
 		jm_save.addActionListener(e -> {
-			System.out.println("aaaaa");
+			System.out.println("Save clicked");
+		});
+
+		jm_saveAs.addActionListener(e -> {
+			System.out.println("Save As clicked");
+		});
+
+		jm_close.addActionListener(e -> {
+			System.out.println("close clicked");
 		});
 
 		setJMenuBar(bar);
