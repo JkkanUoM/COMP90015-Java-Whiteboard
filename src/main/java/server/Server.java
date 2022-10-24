@@ -148,9 +148,10 @@ public class Server {
                         broadcast(message);
                     }
                 }
-                // check for chat
-                // broadcast chat
-
+                else if(c != null) {
+                    c.setMessage(username + "> " + c.getMessage());
+                    broadcast(message);
+                }
         	}
         } catch (ClassNotFoundException | IOException e) {
             e.printStackTrace();
@@ -163,7 +164,7 @@ public class Server {
             if (info.getAction() != Info.IN) {
                 continue;
             }
-			System.out.println("Broadcast");
+
             ObjectOutputStream out = clients.get(un);
 			try {
 				out.writeObject(d);

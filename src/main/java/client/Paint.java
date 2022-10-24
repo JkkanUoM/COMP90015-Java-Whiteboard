@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 
 public class Paint extends JFrame implements MouseMotionListener, MouseListener, KeyListener {
@@ -22,7 +23,9 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	static final int TEXT = 4;
 	static final int FREE = 5;
 	static final int TRIANGLE = 6;
-	
+	private final JTextArea txt_chat;
+	private final JMenuBar bar;
+
 	int selected = RECTANGLE;
 	JLabel status = new JLabel();
 	DefaultListModel<String> userList = new DefaultListModel<>();
@@ -33,11 +36,46 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	CanvasPane pane = new CanvasPane();
 	ObjectOutputStream out;
 	Info selfInfo;
-	
+	private String username;
+	private ObjectInputStream in;
+	private Socket socket;
+
 	public Paint() {
 		super("White Board");
 
-		JTextArea txt_chat = new JTextArea();
+		bar = new JMenuBar();
+		JMenu menu = new JMenu("File");
+		bar.add(menu);
+		JMenuItem jm_open = new JMenuItem("Open");
+		JMenuItem jm_save = new JMenuItem("Save");
+		JMenuItem jm_saveAs = new JMenuItem("Save as");
+		JMenuItem jm_close = new JMenuItem("close");
+
+
+
+		menu.add(jm_open);
+		menu.add(jm_save);
+		menu.add(jm_saveAs);
+		menu.add(jm_close);
+
+		jm_open.addActionListener(e -> {
+			System.out.println("Open clicked");
+		});
+
+		jm_save.addActionListener(e -> {
+			System.out.println("Save clicked");
+		});
+
+		jm_saveAs.addActionListener(e -> {
+			System.out.println("Save As clicked");
+		});
+
+		jm_close.addActionListener(e -> {
+			System.out.println("close clicked");
+		});
+
+		setJMenuBar(bar);
+		txt_chat = new JTextArea();
 		JList<String> userJList = new JList<>(userList);
 		JScrollPane scroll1 = new JScrollPane(userJList, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
 		JScrollPane scroll2 = new JScrollPane(txt_chat);
@@ -56,9 +94,10 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		JButton btn_color = new JButton("Color");
 		JButton btn_triangle = new JButton("Triangle");
 
-		// add small text field
-		// add a chat button
-		// chat button  send a chat message
+		JTextField chatInput = new JTextField();
+
+		chatInput.setPreferredSize(new Dimension(200, 26));
+		JButton btn_send = new JButton("Send");
 
 		chooser.getSelectionModel().addChangeListener(System.out::println);
 
@@ -83,10 +122,19 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 				}
 			}
 		});
+
+		btn_send.addActionListener(e -> {
+			String s = chatInput.getText();
+			if(!s.isBlank()) {
+				Message m = new Message(new Chat(s));
+				send(m);
+			}
+		});
+
 		userJList.addListSelectionListener(e -> {
 			if (selfInfo.isManager) {
 				String un = userJList.getSelectedValue();
-				if (!un.equals(selfInfo.getUsername())) {
+				if (un != null && !un.equals(selfInfo.getUsername())) {
 					Info info = new Info(userJList.getSelectedValue(), Info.IN);
 					Object[] options = {"Yes", "Cancel"};
 					int response = JOptionPane.showOptionDialog(this.getContentPane(),
@@ -119,6 +167,8 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		north.add(btn_color);
 		north.add(btn_free);
 		north.add(btn_triangle);
+		north.add(chatInput);
+		north.add(btn_send);
 
 		pane.addMouseListener(this);
 		pane.addMouseMotionListener(this);
@@ -136,13 +186,14 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		}
 	}
 
-	private void connect(String username, int port) {
+	private boolean connect(String username, int port) {
         try {
-			Socket socket = new Socket("localhost", port);
+			socket = new Socket("localhost", port);
 			out = new ObjectOutputStream(socket.getOutputStream());
+			in = new ObjectInputStream(socket.getInputStream());
 			Thread thread = new Thread(() -> {
 				try {
-					ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+
 					out.writeObject(username);
 					selfInfo = new Info(username, Info.JOINED);
 					status.setText("Waiting for manager confirm...");
@@ -151,88 +202,99 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 						Message m = (Message) in.readObject();
 						Drawable d = m.getDrawable();
 						Info info = m.getInfo();
+						Chat c = m.getChat();
+
 						if(d != null) {
 							System.out.println("Client: recieved new drawable. it has a shape " + d.getShape());
 							drawables.add(d);
 							SwingUtilities.invokeLater(this::repaint);
 						}
 						if(info != null) {
-							int act = info.getAction();
-							String un = info.getUsername();
-
-							if (un.equals(username)) {
-								if (act == Info.LEFT) {
-									out.close();
-									in.close();
-									socket.close();
-									if (selfInfo.getAction() == Info.IN) {
-										status.setText("Your connection is closed by manager.");
-									} else {
-										status.setText("Your name is already taken, choose another one.");
-									}
-									break;
-								}
-								if (act == Info.IN) {
-									userList.addElement(username);
-									selfInfo = info;
-									pane.setEnabled(true);
-									status.setText("You've joint the board!");
-									continue;
-								}
-							}
-
-							if (act == Info.LEFT) {
-								userList.removeElement(un);
-								if (info.isManager) {
-									status.setText("Manager has left, the board is now disconnected, please close the window.");
-									socket.close();
-									break;
-								}
-								status.setText(un + " has left the board");
-							}
-							if (act == Info.IN) {
-								userList.addElement(un);
-								status.setText(info.getUsername() + " has joined the board");
-							}
-							if (act == Info.JOINED) {
-								if (selfInfo.isManager) {
-									int response = -1;
-									if (userList.indexOf(un) == -1) {
-										Object[] options = {"Confirm", "Decline"};
-										response = JOptionPane.showOptionDialog(this.getContentPane(),
-												un + " wants to join your board",
-												"New Join Request",
-												JOptionPane.YES_NO_OPTION,
-												JOptionPane.QUESTION_MESSAGE,
-												null,
-												options,
-												options[0]);
-									}
-
-									info.setAction(response == 0 ? Info.IN : Info.LEFT);
-									send(new Message(info));
-								}
-							}
-
+							processSystemMessage(info);
 							// update the txt_user with the content of the users Arraylist
 						}
+						if(c != null) {
+							txt_chat.append(c.getMessage() + "\n");
+						}
 						// if type == chat add it to the text ara
-
-
 					}
-				} catch (IOException | ClassNotFoundException e) {
+				} catch(SocketException se) {
+					status.setText("The server has been disconneted");
+					JOptionPane.showMessageDialog(null, se.getMessage(), "Error",
+							JOptionPane.ERROR_MESSAGE);
+				}
+				catch (IOException | ClassNotFoundException e) {
 					e.printStackTrace();
 				}
 			});
 			
 			thread.start();
-			
+			return true;
 		} catch (IOException e) {
 			status.setText("Disconnected");
+			return false;
 		}
         
 	}
 
+	void processSystemMessage(Info info) throws IOException {
+		int act = info.getAction();
+		String un = info.getUsername();
+
+		if (un.equals(username)) {
+			if (act == Info.LEFT) {
+				out.close();
+				in.close();
+				socket.close();
+				if (selfInfo.getAction() == Info.IN) {
+					status.setText("Your connection is closed by manager.");
+				} else {
+					status.setText("Your name is already taken, choose another one.");
+				}
+				return;
+			}
+			if (act == Info.IN) {
+				userList.addElement(username);
+				selfInfo = info;
+				pane.setEnabled(true);
+				status.setText("You've joint the board!");
+				return;
+			}
+		}
+
+		if (act == Info.LEFT) {
+			userList.removeElement(un);
+			if (info.isManager) {
+				status.setText("Manager has left, the board is now disconnected, please close the window.");
+				socket.close();
+				return;
+			}
+			status.setText(un + " has left the board");
+		}
+		if (act == Info.IN) {
+			userList.addElement(un);
+			status.setText(info.getUsername() + " has joined the board");
+		}
+		if (act == Info.JOINED) {
+			if (selfInfo.isManager) {
+				int response = -1;
+				if (userList.indexOf(un) == -1) {
+					Object[] options = {"Confirm", "Decline"};
+					response = JOptionPane.showOptionDialog(this.getContentPane(),
+							un + " wants to join your board",
+							"New Join Request",
+							JOptionPane.YES_NO_OPTION,
+							JOptionPane.QUESTION_MESSAGE,
+							null,
+							options,
+							options[0]);
+				}
+
+				info.setAction(response == 0 ? Info.IN : Info.LEFT);
+				send(new Message(info));
+			}
+		}
+	}
 	public static void main(String[] args) {
 		int port = 4321;
 		if (args.length > 1) {
@@ -246,6 +308,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 
 		Paint p = new Paint();
 		p.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
 		p.addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(WindowEvent e) {
@@ -255,15 +318,24 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 						p.out.writeObject(new Message(p.selfInfo));
 					}
 				} catch (IOException ex) {
-					ex.printStackTrace();
+					//ex.printStackTrace();
 				}
 			}
 		});
 		p.setSize(1000, 1000);
 		
 		String s = JOptionPane.showInputDialog("Please enter your username");
-		p.connect(s, port);
-		p.setVisible(true);
+		p.setUserName(s);
+		if(!p.connect(s, port)) {
+			JOptionPane.showMessageDialog(null, "Server not started", "Error", JOptionPane.ERROR_MESSAGE);
+		}
+		else {
+			p.setVisible(true);
+		}
+	}
+
+	private void setUserName(String s) {
+		this.username = s;
 	}
 
 	@Override
