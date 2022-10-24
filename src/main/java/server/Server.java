@@ -10,10 +10,7 @@ import java.util.HashMap;
 
 import javax.net.ServerSocketFactory;
 
-import client.Chat;
-import client.Drawable;
-import client.Info;
-import client.Message;
+import client.*;
 
 public class Server {
 
@@ -109,6 +106,16 @@ public class Server {
                 // Verify acceptance from manager
                 if (info.getAction() == Info.JOINED) {
                     continue;
+                }
+
+                if (client == manager) {
+                    FileRequest req = message.getFileRequest();
+                    if (req != null) {
+                        if (req.getString().equals("new")) {
+                            broadcast(message);
+                            drawables.clear();
+                        }
+                    }
                 }
 
                 if (inf != null) {

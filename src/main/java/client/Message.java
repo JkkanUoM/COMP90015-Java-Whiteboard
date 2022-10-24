@@ -6,6 +6,7 @@ public class Message implements Serializable {
     private Info info;
     private Drawable drawable;
     private Chat chat;
+    private FileRequest file;
 
     public Message(Drawable drawable) {
         this.drawable = drawable;
@@ -17,6 +18,10 @@ public class Message implements Serializable {
 
     public Message(Info info) {
         this.info = info;
+    }
+
+    public Message(FileRequest file) {
+        this.file = file;
     }
 
     public Drawable getDrawable() {
@@ -31,6 +36,10 @@ public class Message implements Serializable {
         return chat;
     }
 
+    public FileRequest getFileRequest() {
+        return file;
+    }
+
     public void setChat(Chat chat) {
         this.chat = chat;
     }
@@ -41,5 +50,9 @@ public class Message implements Serializable {
 
     public void setInfo(Info info) {
         this.info = info;
+    }
+
+    public void setFileRequest(FileRequest file) {
+        this.file = file;
     }
 }

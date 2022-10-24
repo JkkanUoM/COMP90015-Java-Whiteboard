@@ -22,7 +22,6 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 	static final int TRIANGLE = 6;
 	private final JTextArea txt_chat;
 	private final JMenuBar bar;
-	static String filePath = null;
 
 	int selected = RECTANGLE;
 	JLabel status = new JLabel();
@@ -58,53 +57,53 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		menu.add(jm_close);
 
 		jm_new.addActionListener((e -> {
-			System.out.println("New clicked");
+			try {
+				out.writeObject(new Message(new FileRequest("new")));
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			}
+
+			drawables.clear();
+			repaint();
 		}));
 
 		jm_open.addActionListener(e -> {
-			System.out.println("Open clicked");
+			JFileChooser fs = new JFileChooser();
+			int result = fs.showOpenDialog(null);
+			if(result == JFileChooser.APPROVE_OPTION) {
+				File f = fs.getSelectedFile();
+				if (loadFromFile(f)) {
+					status.setText("File loaded");
+				} else {
+					status.setText("Failed to load");
+				}
+			}
 		});
 
 		jm_save.addActionListener(e -> {
-			System.out.println("Save clicked");
-
-			try {
-				File f = new File("Objects.binary");
-				f.delete();
-				f.createNewFile();
-				ObjectOutputStream objOut = new ObjectOutputStream(new FileOutputStream(f));
-				for (Drawable d : drawables) {
-					objOut.writeObject(d);
-				}
-			} catch (IOException IOe) {
-				IOe.printStackTrace();
+			File f = new File("save");
+			if (saveToFile(f)) {
+				status.setText("File saved");
+			} else {
+				status.setText("Failed to save");
 			}
-
 		});
 
 		jm_saveAs.addActionListener(e -> {
-			System.out.println("Save As clicked");
-				JFileChooser fs = new JFileChooser();
-				int result = fs.showOpenDialog(null);
-				if(result == JFileChooser.APPROVE_OPTION) {
-			try {
+			JFileChooser fs = new JFileChooser();
+			int result = fs.showOpenDialog(null);
+			if(result == JFileChooser.APPROVE_OPTION) {
 				File f = fs.getSelectedFile();
-				f.delete();
-				f.createNewFile();
-				ObjectOutputStream objOut = new ObjectOutputStream(new FileOutputStream(f));
-				for (Drawable d : drawables) {
-					objOut.writeObject(d);
+				if (saveToFile(f)) {
+					status.setText("File saved");
+				} else {
+					status.setText("Failed to save");
 				}
-			} catch (IOException IOe) {
-				IOe.printStackTrace();
-			}}
+			}
 		});
 
-		jm_close.addActionListener(e -> {
-			System.out.println("close clicked");
-		});
+		jm_close.addActionListener(e -> System.exit(0));
 
-		setJMenuBar(bar);
 		txt_chat = new JTextArea();
 		JList<String> userJList = new JList<>(userList);
 		JScrollPane scroll1 = new JScrollPane(userJList, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
@@ -233,6 +232,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 						Drawable d = m.getDrawable();
 						Info info = m.getInfo();
 						Chat c = m.getChat();
+						FileRequest f = m.getFileRequest();
 
 						if(d != null) {
 							System.out.println("Client: recieved new drawable. it has a shape " + d.getShape());
@@ -246,7 +246,12 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 						if(c != null) {
 							txt_chat.append(c.getMessage() + "\n");
 						}
-						// if type == chat add it to the text ara
+						if(f != null) {
+							if (f.getString().equals("new")) {
+								drawables.clear();
+								repaint();
+							}
+						}
 					}
 				} catch(SocketException se) {
 					status.setText("The server has been disconneted");
@@ -284,6 +289,7 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 				return;
 			}
 			if (act == Info.IN) {
+				setJMenuBar(bar);
 				userList.addElement(username);
 				selfInfo = info;
 				pane.setEnabled(true);
@@ -362,6 +368,30 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		else {
 			p.setVisible(true);
 		}
+	}
+
+	private boolean saveToFile (File f) {
+		try {
+			f.delete();
+			f.createNewFile();
+			ObjectOutputStream objOut = new ObjectOutputStream(new FileOutputStream(f));
+			objOut.writeObject(drawables);
+		} catch (IOException IOe) {
+			IOe.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+
+	private boolean loadFromFile (File f) {
+		try {
+			ObjectInputStream objIn = new ObjectInputStream(new FileInputStream(f));
+			drawables = (ArrayList<Drawable>) objIn.readObject();
+		} catch (IOException | ClassNotFoundException e) {
+			e.printStackTrace();
+			return false;
+		}
+		return true;
 	}
 
 	private void setUserName(String s) {
