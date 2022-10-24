@@ -68,12 +68,39 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 		}));
 
 		jm_open.addActionListener(e -> {
+			if (!drawables.isEmpty()) {
+				int result = JOptionPane.showConfirmDialog((Component) null, "Save current whiteboard?",
+						"alert", JOptionPane.YES_NO_CANCEL_OPTION);
+				if (result == 0) {
+					JFileChooser fs = new JFileChooser();
+					int r = fs.showOpenDialog(null);
+					if(r == JFileChooser.APPROVE_OPTION) {
+						File f = fs.getSelectedFile();
+						if (saveToFile(f)) {
+							status.setText("File saved");
+						} else {
+							status.setText("Failed to save");
+						}
+					}
+				}
+			}
+
 			JFileChooser fs = new JFileChooser();
 			int result = fs.showOpenDialog(null);
 			if(result == JFileChooser.APPROVE_OPTION) {
 				File f = fs.getSelectedFile();
 				if (loadFromFile(f)) {
 					status.setText("File loaded");
+					repaint();
+					try {
+						out.writeObject(new Message(new FileRequest("new")));
+						for (Drawable d : drawables) {
+							out.writeObject(new Message(d));
+						}
+					} catch (IOException ex) {
+						ex.printStackTrace();
+					}
+
 				} else {
 					status.setText("Failed to load");
 				}
@@ -289,11 +316,13 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 				return;
 			}
 			if (act == Info.IN) {
-				setJMenuBar(bar);
 				userList.addElement(username);
 				selfInfo = info;
 				pane.setEnabled(true);
 				status.setText("You've joint the board!");
+				if (selfInfo.isManager) {
+					setJMenuBar(bar);
+				}
 				return;
 			}
 		}
