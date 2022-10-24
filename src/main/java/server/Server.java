@@ -5,7 +5,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -56,7 +55,7 @@ public class Server {
             System.out.println("Waiting for client connection..");
 
             // Wait for connections.
-            while (true) {
+            while (!server.isClosed()) {
                 Socket client = server.accept();
                 // Start a new thread for a connection
                 Thread t = new Thread(() -> serveClient(client));
@@ -65,6 +64,16 @@ public class Server {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+
+        try {
+            for (Thread t : threads) {
+                t.interrupt();
+                t.join();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            System.exit(0);
         }
     }
 
@@ -108,12 +117,14 @@ public class Server {
                     int act = inf.getAction();
 
                     if (act == Info.IN) {
+                        syncHistory(clients.get(un));
                         infos.get(un).setAction(Info.IN);
                         broadcast(message);
-                        syncHistory(clients.get(un));
                     }
                     if (act == Info.LEFT) {
                         broadcast(message);
+                        clients.remove(un);
+                        infos.remove(un);
 
                         if (inf.getUsername().equals(info.getUsername())) {
                             System.out.println("Client left");
@@ -123,13 +134,10 @@ public class Server {
 
                             if (client == manager) {
                                 System.out.println("Left client is manager");
-                                close();
-                                break;
+                                server.close();
                             }
+                            break;
                         }
-
-                        clients.remove(un);
-                        infos.remove(un);
                     }
                 }
 
@@ -144,12 +152,8 @@ public class Server {
                 // broadcast chat
 
         	}
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException | IOException e) {
             e.printStackTrace();
-        } catch (IOException e) {
-            if (client == manager) {
-                close();
-            }
         }
     }
     
@@ -188,18 +192,6 @@ public class Server {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-    }
-
-    private static void close() {
-        try {
-            for (Thread t : threads) {
-                t.interrupt();
-                t.join();
-            }
-            server.close();
-        } catch (InterruptedException | IOException e) {
-            System.exit(0);
         }
     }
 }

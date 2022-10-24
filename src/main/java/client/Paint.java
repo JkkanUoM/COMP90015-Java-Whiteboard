@@ -173,18 +173,21 @@ public class Paint extends JFrame implements MouseMotionListener, MouseListener,
 									break;
 								}
 								if (act == Info.IN) {
-									if (selfInfo.getAction() != act) {
-										userList.addElement(username);
-										selfInfo = info;
-										pane.setEnabled(true);
-										status.setText("You've joint the board!");
-									}
+									userList.addElement(username);
+									selfInfo = info;
+									pane.setEnabled(true);
+									status.setText("You've joint the board!");
 									continue;
 								}
 							}
 
 							if (act == Info.LEFT) {
 								userList.removeElement(un);
+								if (info.isManager) {
+									status.setText("Manager has left, the board is now disconnected, please close the window.");
+									socket.close();
+									break;
+								}
 								status.setText(un + " has left the board");
 							}
 							if (act == Info.IN) {
